@@ -61,6 +61,10 @@ class TransferError(dns.exception.DNSException):
         self.rcode = rcode
 
 
+def _sf(sf=None):
+    return sf or socket_factory
+
+
 def _compute_expiration(timeout):
     if timeout is None:
         return None
@@ -272,7 +276,8 @@ def receive_udp(sock, destination, expiration=None,
     return (r, received_time)
 
 def udp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
-        ignore_unexpected=False, one_rr_per_rrset=False, ignore_trailing=False):
+        ignore_unexpected=False, one_rr_per_rrset=False, ignore_trailing=False,
+        socket_factory=None):
     """Return the response obtained after sending a query via UDP.
 
     *q*, a ``dns.message.Message``, the query to send
@@ -305,13 +310,16 @@ def udp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
     *ignore_trailing*, a ``bool``.  If ``True``, ignore trailing
     junk at end of the received message.
 
+    *socket_factory*, a callable. ``socket.socket``-like function to use for
+    socket creation.
+
     Returns a ``dns.message.Message``.
     """
 
     wire = q.to_wire()
     (af, destination, source) = _destination_and_source(af, where, port,
                                                         source, source_port)
-    s = socket_factory(af, socket.SOCK_DGRAM, 0)
+    s = _sf(socket_factory)(af, socket.SOCK_DGRAM, 0)
     received_time = None
     sent_time = None
     try:
@@ -440,7 +448,7 @@ def _connect(s, address):
 
 
 def tcp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
-        one_rr_per_rrset=False, ignore_trailing=False):
+        one_rr_per_rrset=False, ignore_trailing=False, socket_factory=None):
     """Return the response obtained after sending a query via TCP.
 
     *q*, a ``dns.message.Message``, the query to send
@@ -470,13 +478,16 @@ def tcp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
     *ignore_trailing*, a ``bool``.  If ``True``, ignore trailing
     junk at end of the received message.
 
+    *socket_factory*, a callable. ``socket.socket``-like function to use for
+    socket creation.
+
     Returns a ``dns.message.Message``.
     """
 
     wire = q.to_wire()
     (af, destination, source) = _destination_and_source(af, where, port,
                                                         source, source_port)
-    s = socket_factory(af, socket.SOCK_STREAM, 0)
+    s = _sf(socket_factory)(af, socket.SOCK_STREAM, 0)
     begin_time = None
     received_time = None
     try:
@@ -504,7 +515,8 @@ def tcp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
 def xfr(where, zone, rdtype=dns.rdatatype.AXFR, rdclass=dns.rdataclass.IN,
         timeout=None, port=53, keyring=None, keyname=None, relativize=True,
         af=None, lifetime=None, source=None, source_port=0, serial=0,
-        use_udp=False, keyalgorithm=dns.tsig.default_algorithm):
+        use_udp=False, keyalgorithm=dns.tsig.default_algorithm,
+        socket_factory=None):
     """Return a generator for the responses to a zone transfer.
 
     *where*.  If the inference attempt fails, AF_INET is used.  This
@@ -557,6 +569,9 @@ def xfr(where, zone, rdtype=dns.rdatatype.AXFR, rdclass=dns.rdataclass.IN,
 
     *keyalgorithm*, a ``dns.name.Name`` or ``text``, the TSIG algorithm to use.
 
+    *socket_factory*, a callable. ``socket.socket``-like function to use for
+    socket creation.
+
     Raises on errors, and so does the generator.
 
     Returns a generator of ``dns.message.Message`` objects.
@@ -579,9 +594,9 @@ def xfr(where, zone, rdtype=dns.rdatatype.AXFR, rdclass=dns.rdataclass.IN,
     if use_udp:
         if rdtype != dns.rdatatype.IXFR:
             raise ValueError('cannot do a UDP AXFR')
-        s = socket_factory(af, socket.SOCK_DGRAM, 0)
+        s = _sf(socket_factory)(af, socket.SOCK_DGRAM, 0)
     else:
-        s = socket_factory(af, socket.SOCK_STREAM, 0)
+        s = _sf(socket_factory)(af, socket.SOCK_STREAM, 0)
     s.setblocking(0)
     if source is not None:
         s.bind(source)
