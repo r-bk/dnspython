@@ -536,6 +536,7 @@ class Resolver(object):
         self.flags = None
         self.retry_servfail = False
         self.rotate = False
+        self.socket_factory = None
 
         self.reset()
         if configure:
@@ -902,15 +903,21 @@ class Resolver(object):
                     try:
                         tcp_attempt = tcp
                         if tcp:
-                            response = dns.query.tcp(request, nameserver,
-                                                     timeout, port,
-                                                     source=source,
-                                                     source_port=source_port)
+                            response = dns.query.tcp(
+                                request, nameserver,
+                                timeout, port,
+                                source=source,
+                                source_port=source_port,
+                                socket_factory=self.socket_factory
+                            )
                         else:
-                            response = dns.query.udp(request, nameserver,
-                                                     timeout, port,
-                                                     source=source,
-                                                     source_port=source_port)
+                            response = dns.query.udp(
+                                request, nameserver,
+                                timeout, port,
+                                source=source,
+                                source_port=source_port,
+                                socket_factory=self.socket_factory
+                            )
                             if response.flags & dns.flags.TC:
                                 # Response truncated; retry with TCP.
                                 tcp_attempt = True
@@ -919,7 +926,8 @@ class Resolver(object):
                                     dns.query.tcp(request, nameserver,
                                                   timeout, port,
                                                   source=source,
-                                                  source_port=source_port)
+                                                  source_port=source_port,
+                                                  socket=self.socket_factory)
                     except (socket.error, dns.exception.Timeout) as ex:
                         #
                         # Communication failure or timeout.  Go to the
